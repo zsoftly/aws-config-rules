@@ -43,7 +43,7 @@ aws serverlessrepo create-cloud-formation-template \
 
 aws cloudformation deploy \
   --template-file template.yaml \
-  --stack-name log-retention-enforcer \
+  --stack-name cw-loggroup-retention-monitor \
   --capabilities CAPABILITY_IAM
 ```
 

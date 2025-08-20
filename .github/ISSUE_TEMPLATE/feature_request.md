@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature for CloudWatch Log Retention Enforcer
+about: Suggest a new feature for cw-loggroup-retention-monitor
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''

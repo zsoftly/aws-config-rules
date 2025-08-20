@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug or issue with CloudWatch Log Retention Enforcer
+about: Report a bug or issue with cw-loggroup-retention-monitor
 title: '[BUG] '
 labels: bug
 assignees: ''
@@ -22,7 +22,7 @@ What actually happens
 
 ## Environment
 - AWS Region: 
-- CloudWatch Log Retention Enforcer Version: 
+- cw-loggroup-retention-monitor Version: 
 - Deployment Method: [Marketplace/CloudFormation/SAM]
 
 ## Additional Context

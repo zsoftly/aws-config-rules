@@ -1,5 +1,5 @@
 ## Description
-Brief description of changes for CloudWatch Log Retention Enforcer
+Brief description of changes for cw-loggroup-retention-monitor
 
 ## Checklist
 - [ ] Tests pass
