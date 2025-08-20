@@ -1,22 +1,23 @@
-# CloudWatch Log Retention Enforcer
+# cw-loggroup-retention-monitor: CloudWatch Log Group Retention Compliance Monitor
 
-🎯 **AWS Serverless Application** built to support [LogGuardian](https://github.com/zsoftly/logguardian), providing advanced log retention compliance for CloudWatch. This app overcomes limitations in the AWS native config rule (`CW_LOGGROUP_RETENTION_PERIOD_CHECK`), which marks infinite retention as compliant and can lead to unexpected costs.
+🎯 **AWS Serverless Application** for CloudWatch log retention compliance monitoring. This app overcomes limitations in the AWS native config rule (`CW_LOGGROUP_RETENTION_PERIOD_CHECK`), which marks infinite retention as compliant and can lead to unexpected costs. Monitors compliance without modifying log groups.
 
 **Marketplace:** LogGuardian is available in the AWS Serverless Application Repository: [LogGuardian SAR](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/LogGuardian)
 
 [![Deploy](https://img.shields.io/badge/Deploy-AWS%20SAR-orange?logo=amazon-aws)](https://serverlessrepo.aws.amazon.com/applications)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Config Rule](https://img.shields.io/badge/AWS-Config%20Rule-ff9900)](https://aws.amazon.com/config/)
-[![CI](https://github.com/zsoftly/aws-config-rules/actions/workflows/ci.yml/badge.svg)](https://github.com/zsoftly/aws-config-rules/actions/workflows/ci.yml)
-[![SAST](https://github.com/zsoftly/aws-config-rules/actions/workflows/sast.yml/badge.svg)](https://github.com/zsoftly/aws-config-rules/actions/workflows/sast.yml)
+[![CI & Security](https://github.com/zsoftly/aws-config-rules/actions/workflows/ci.yml/badge.svg)](https://github.com/zsoftly/aws-config-rules/actions/workflows/ci.yml)
 
 ## 🔥 Problem Solved
 
-AWS's default Config rule `CW_LOGGROUP_RETENTION_PERIOD_CHECK` **incorrectly marks infinite retention as compliant**, leading to unexpected costs. This application fixes that critical flaw:
+AWS's default Config rule `CW_LOGGROUP_RETENTION_PERIOD_CHECK` **incorrectly marks infinite retention as compliant**, leading to unexpected costs. This application fixes that critical flaw by providing accurate compliance monitoring:
 
 - ❌ **NON_COMPLIANT**: Log groups with infinite retention (`null`)
-- ❌ **NON_COMPLIANT**: Log groups with wrong retention periods  
-- ✅ **COMPLIANT**: Only log groups with exactly the required retention period
+- ❌ **NON_COMPLIANT**: Log groups below the minimum retention period  
+- ✅ **COMPLIANT**: Log groups that meet or exceed the minimum retention period
+
+**Note**: This tool monitors and reports compliance only - it does not automatically modify log group retention settings.
 
 ## ⚠️ Prerequisites
 
@@ -97,7 +98,7 @@ aws configservice describe-delivery-channel-status
 **Deploy in 30 seconds with zero setup required:**
 
 1. **Open the AWS Console** → Serverless Application Repository
-2. **Search**: `cloudwatch-log-retention-enforcer`
+2. **Search**: `cw-loggroup-retention-monitor`
 3. **Click Deploy** → Configure parameters → Deploy
 4. **Done!** ✅
 
@@ -109,8 +110,9 @@ aws configservice describe-delivery-channel-status
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| **RequiredRetentionDays** | `30` | Required retention period (1-3653 days) |
-| **ConfigRuleName** | `cloudwatch-log-retention-enforcer` | Name for the Config rule |
+| **MinimumRetentionDays** | `1` | Minimum retention period (1-3653 days) |
+| **ConfigRuleName** | `cw-log-retention-min` | Name for the Config rule (must contain 'retention') |
+| **LambdaLogRetentionDays** | `7` | Retention period for Lambda function logs (1-3653 days) |
 
 ## 📦 Alternative Deployment Methods
 
@@ -130,10 +132,10 @@ sam build && sam deploy --guided
 ```python
 if log_group.retentionInDays is None:
     return "NON_COMPLIANT"  # ❌ Infinite retention = cost risk
-elif log_group.retentionInDays != required_days:
-    return "NON_COMPLIANT"  # ❌ Wrong retention period
+elif log_group.retentionInDays < minimum_days:
+    return "NON_COMPLIANT"  # ❌ Below minimum retention period
 else:
-    return "COMPLIANT"      # ✅ Exactly matches requirement
+    return "COMPLIANT"      # ✅ Meets or exceeds minimum requirement
 ```
 
 ### Evaluation Schedule
@@ -145,23 +147,24 @@ else:
 
 ### Example Evaluations
 
-| Log Group | Current Retention | Required | Status | Annotation |
-|-----------|------------------|----------|--------|------------|
-| `/aws/lambda/my-func` | `null` | 30 | ❌ NON_COMPLIANT | Has infinite retention (null) |
-| `/custom/app` | `7 days` | 30 | ❌ NON_COMPLIANT | Has 7 days, required 30 |
-| `/secure/logs` | `30 days` | 30 | ✅ COMPLIANT | Has required retention |
+| Log Group | Current Retention | Minimum | Status | Annotation |
+|-----------|------------------|---------|--------|------------|
+| `/aws/lambda/my-func` | `null` | 1 | ❌ NON_COMPLIANT | Has infinite retention (null) |
+| `/custom/app` | `7 days` | 30 | ❌ NON_COMPLIANT | Has 7 days, minimum required 30 |
+| `/secure/logs` | `30 days` | 7 | ✅ COMPLIANT | Has 30 days, meets minimum of 7 |
+| `/archive/data` | `365 days` | 30 | ✅ COMPLIANT | Has 365 days, exceeds minimum of 30 |
 
 ### View Results
 
 **AWS Console:**
 ```
-Config → Rules → cloudwatch-log-retention-enforcer → Compliance
+Config → Rules → cw-log-retention-min → Compliance
 ```
 
 **AWS CLI:**
 ```bash
 aws configservice get-compliance-details-by-config-rule \
-  --config-rule-name cloudwatch-log-retention-enforcer
+  --config-rule-name cw-log-retention-min
 ```
 
 ## 💰 Cost Impact
@@ -198,14 +201,38 @@ The Lambda function needs:
 
 ```mermaid
 graph TB
-    A[CloudWatch Log Groups] --> B[AWS Config]
-    B --> C[Lambda Function]
-    C --> D[Compliance Evaluation]
-    D --> E[Config Results]
-    E --> F[AWS Console/API]
+    A[CloudWatch Log Groups] --> B[AWS Config Service]
+    B --> C[Lambda Function<br/>cw-loggroup-retention-monitor]
+    C --> D{Compliance Check}
     
-    G[Schedule: 24h] --> C
-    H[Config Changes] --> C
+    D --> E1[✅ COMPLIANT<br/>retention ≥ minimum<br/>e.g., 30 days ≥ 7 days]
+    D --> E2[❌ NON_COMPLIANT<br/>retention = null infinite<br/>OR retention < minimum<br/>e.g., 3 days < 7 days]
+    
+    E1 --> F[Config Results]
+    E2 --> F[Config Results]
+    F --> G[AWS Console/API<br/>Compliance Dashboard]
+    
+    H[⏰ Schedule Trigger<br/>Every 24 hours] --> C
+    I[🔄 Change Trigger<br/>Log group created/modified] --> C
+    
+    J[📋 Rule Parameters<br/>MinimumRetentionDays: 1-3653] --> C
+    
+    classDef aws fill:#ff9900,stroke:#232f3e,stroke-width:2px,color:#fff
+    classDef lambda fill:#ff9900,stroke:#232f3e,stroke-width:2px,color:#fff
+    classDef decision fill:#ffc107,stroke:#f57c00,stroke-width:3px,color:#000
+    classDef compliant fill:#4caf50,stroke:#2e7d32,stroke-width:2px,color:#fff
+    classDef noncompliant fill:#f44336,stroke:#d32f2f,stroke-width:2px,color:#fff
+    classDef trigger fill:#2196f3,stroke:#1565c0,stroke-width:2px,color:#fff
+    classDef config fill:#9c27b0,stroke:#6a1b9a,stroke-width:2px,color:#fff
+    classDef params fill:#607d8b,stroke:#37474f,stroke-width:2px,color:#fff
+    
+    class A,B,C,G aws
+    class D decision
+    class E1 compliant
+    class E2 noncompliant
+    class H,I trigger
+    class F config
+    class J params
 ```
 
 ## 🚨 Troubleshooting

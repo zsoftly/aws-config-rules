@@ -218,6 +218,8 @@ bandit-report.json
 # Test artifacts
 tests/__pycache__/
 tests/*.pyc
+.pytest_cache/
+htmlcov/
 
 # Claude IDE
 .claude/

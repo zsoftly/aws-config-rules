@@ -7,14 +7,15 @@ from datetime import datetime
 
 def lambda_handler(event, context):
     """
-    AWS Config rule Lambda handler for CloudWatch Log Group Retention Enforcer
+    AWS Config rule Lambda handler for CloudWatch Log Group Retention Monitor
     
-    Evaluates CloudWatch log groups for compliance with required retention periods.
-    Marks log groups as NON_COMPLIANT if:
+    Monitors CloudWatch log groups for compliance with minimum retention periods.
+    Reports log groups as NON_COMPLIANT if:
     - retentionInDays is null (infinite retention)
-    - retentionInDays doesn't match the required value
+    - retentionInDays is less than the minimum required value
     
-    Marks log groups as COMPLIANT only if retentionInDays exactly matches the required value.
+    Reports log groups as COMPLIANT if retentionInDays meets or exceeds the minimum required value.
+    Does not modify or enforce retention policies - monitoring only.
     """
     
     print(f"Received event: {json.dumps(event, default=str)}")
@@ -24,13 +25,13 @@ def lambda_handler(event, context):
     if 'ruleParameters' in event:
         rule_parameters = json.loads(event['ruleParameters'])
     
-    # Get required retention days from parameters or environment
+    # Get minimum retention days from parameters or environment
     required_retention_days = int(
-        rule_parameters.get('RequiredRetentionDays', 
-        os.environ.get('REQUIRED_RETENTION_DAYS', '30'))
+        rule_parameters.get('MinimumRetentionDays', 
+        os.environ.get('REQUIRED_RETENTION_DAYS', '1'))
     )
     
-    print(f"Required retention days: {required_retention_days}")
+    print(f"Minimum retention days: {required_retention_days}")
     
     # Parse invoking event
     invoking_event = json.loads(event['invokingEvent'])
@@ -136,23 +137,23 @@ def create_evaluation(resource_id, resource_type, current_retention, required_re
 
 
 def determine_compliance(current_retention, required_retention_days):
-    """Determine compliance status based on retention values"""
+    """Determine compliance status based on minimum retention values"""
     if current_retention is None:
         return 'NON_COMPLIANT'  # Infinite retention
-    elif current_retention != required_retention_days:
-        return 'NON_COMPLIANT'  # Wrong retention period
+    elif current_retention < required_retention_days:
+        return 'NON_COMPLIANT'  # Below minimum retention period
     else:
-        return 'COMPLIANT'      # Correct retention period
+        return 'COMPLIANT'      # Meets or exceeds minimum retention period
 
 
 def create_annotation(log_group_name, current_retention, required_retention_days):
     """Create annotation message for the evaluation"""
     if current_retention is None:
-        return f"Log group '{log_group_name}' has infinite retention (null). Required: {required_retention_days} days."
-    elif current_retention != required_retention_days:
-        return f"Log group '{log_group_name}' has {current_retention} days retention. Required: {required_retention_days} days."
+        return f"Log group '{log_group_name}' has infinite retention (null). Minimum required: {required_retention_days} days."
+    elif current_retention < required_retention_days:
+        return f"Log group '{log_group_name}' has {current_retention} days retention. Minimum required: {required_retention_days} days."
     else:
-        return f"Log group '{log_group_name}' has the required retention of {required_retention_days} days."
+        return f"Log group '{log_group_name}' has {current_retention} days retention, meets minimum requirement of {required_retention_days} days."
 
 
 def get_configuration_item(invoking_event, config_client):

@@ -1,5 +1,4 @@
-name: CI
-
+name: CI & Security
 
 on:
   push:
@@ -7,25 +6,86 @@ on:
   pull_request:
     branches: [ main, 'feature/*', 'feat/*', 'issue/*', 'release/*' ]
 
-
 jobs:
-  sast:
-    name: Run SAST (Bandit)
+  lint-and-security:
+    name: Lint & Security Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Bandit
-        run: pip install bandit
-      - name: Run Bandit SAST scan
-        run: bandit -r src/ --exit-zero
+          
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install flake8 bandit
+          
+      - name: Lint with flake8
+        run: |
+          # Stop build if syntax errors or undefined names
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Check for other issues (warnings only)
+          flake8 src/ --count --max-complexity=10 --max-line-length=120 --statistics || true
+          
+      - name: Security scan with Bandit
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ --exit-zero
+          
       - name: Upload Bandit report
         uses: actions/upload-artifact@v4
         with:
           name: bandit-report
-          path: bandit.json
+          path: bandit-report.json
+        if: always()
+
+  sam-validation:
+    name: SAM Template Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+          
+      - name: Validate SAM template
+        run: |
+          sam validate
+          sam validate --lint
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r tests/requirements.txt
+          if [ -f src/requirements.txt ]; then pip install -r src/requirements.txt; fi
+          
+      - name: Run unit tests
+        run: |
+          # Run tests with coverage
+          pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml --tb=short
+          
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
         if: always()

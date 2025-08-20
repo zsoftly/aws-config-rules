@@ -1,8 +1,8 @@
 
 
-# CloudWatch Log Retention Enforcer (AWS SAR)
+# cw-loggroup-retention-monitor (AWS SAR)
 
-**Enterprise-grade automation for CloudWatch log group retention compliance**
+**CloudWatch log group retention compliance monitoring**
 
 **License:** MIT | **Language:** Python 3.12+ | **Platform:** AWS SAM
 
@@ -20,8 +20,9 @@ This application is built to support [LogGuardian](https://github.com/zsoftly/lo
 
 ## What It Does
 
-- **Retention Enforcement:** Flags log groups as NON_COMPLIANT if retention is infinite (null) or not the required value
-- **Config Compliance:** COMPLIANT only if retention matches the configured value
+- **Retention Monitoring:** Reports log groups as NON_COMPLIANT if retention is infinite (null) or below the minimum value
+- **Config Compliance:** COMPLIANT if retention meets or exceeds the configured minimum
+- **Non-Intrusive:** Monitors only - does not modify log group settings
 - **Automation:** Periodic, real-time, and manual evaluation
 
 ---
@@ -30,13 +31,13 @@ This application is built to support [LogGuardian](https://github.com/zsoftly/lo
 
 **AWS Console:**
 1. Click "Deploy" in SAR
-2. Configure parameters (default retention: 7 days)
+2. Configure parameters (default minimum: 1 day)
 3. Deploy to your AWS account
 
 **AWS CLI:**
 ```bash
 aws serverlessrepo create-cloud-formation-template \
-  --application-id arn:aws:serverlessrepo:ca-central-1:YOUR-ACCOUNT:applications/cloudwatch-log-retention-enforcer \
+  --application-id arn:aws:serverlessrepo:ca-central-1:YOUR-ACCOUNT:applications/cw-loggroup-retention-monitor \
   --semantic-version 1.0.0 \
   --region ca-central-1
 
@@ -50,16 +51,27 @@ aws cloudformation deploy \
 
 ## Key Features
 
-- **Strict Retention Policy:** Flags infinite retention and wrong retention periods
+- **Accurate Compliance Monitoring:** Reports infinite retention and periods below minimum
 - **Automated Scheduling:** Periodic and event-driven compliance checks
 - **Enterprise Ready:** Works with existing AWS Config setup
 - **Multi-Region:** Deploy in any AWS region
 
-**Configuration:**
-| Name                  | Default | Description                       |
-|----------------------|---------|-----------------------------------|
-| RequiredRetentionDays | 7       | Retention period (1-3653 days)    |
-| ConfigRuleName        | cloudwatch-log-retention-enforcer | Name for the Config rule |
+**Configuration Parameters:**
+
+**MinimumRetentionDays**
+- Default: 1
+- Description: Minimum retention period (1-3653 days)
+- Valid values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
+
+**ConfigRuleName**
+- Default: cw-log-retention-min
+- Description: Name for the AWS Config rule (must contain 'retention')
+- Pattern: Must contain the word 'retention' (case-insensitive)
+
+**LambdaLogRetentionDays**
+- Default: 7
+- Description: Retention period for Lambda function logs (1-3653 days)
+- Valid values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
 
 ---
 
