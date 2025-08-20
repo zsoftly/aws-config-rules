@@ -6,12 +6,12 @@ Metadata:
     Name: CloudWatch-LogGroup-Retention-Monitor
     Description: |
       Monitors CloudWatch log group retention compliance. Fixes AWS default rule that incorrectly marks infinite retention as compliant. Checks log groups against minimum retention requirements without modifying them.
-    Author: AWS Config Community
+    Author: ZSoftly Technologies Inc
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/zsoftly/aws-config-rules
-    SemanticVersion: 1.0.0
+    SemanticVersion: 1.0.2
     SourceCodeUrl: https://github.com/zsoftly/aws-config-rules
     Labels: ['config', 'cloudwatch', 'logs', 'retention', 'compliance', 'cost-optimization']
 

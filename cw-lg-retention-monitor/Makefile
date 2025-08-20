@@ -2,7 +2,7 @@
 
 # Default values
 AWS_REGION ?= ca-central-1
-SEMANTIC_VERSION ?= 1.0.0
+SEMANTIC_VERSION ?= 1.0.2
 APP_NAME = CloudWatch-LogGroup-Retention-Monitor
 
 # SAM managed bucket will be created automatically
