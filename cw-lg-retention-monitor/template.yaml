@@ -3,11 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 
 Metadata:
   AWS::ServerlessRepo::Application:
-    Name: cloudwatch-log-retention-enforcer
+    Name: CloudWatch-LogGroup-Retention-Monitor
     Description: |
-      AWS Config rule that enforces CloudWatch log group retention policies globally. 
-      Fixes the critical issue where AWS's default rule incorrectly marks infinite retention (null) as compliant.
-      Ensures log groups have exactly the specified retention period to control costs.
+      Monitors CloudWatch log group retention compliance. Fixes AWS default rule that incorrectly marks infinite retention as compliant. Checks log groups against minimum retention requirements without modifying them.
     Author: AWS Config Community
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
@@ -18,24 +16,33 @@ Metadata:
     Labels: ['config', 'cloudwatch', 'logs', 'retention', 'compliance', 'cost-optimization']
 
 Parameters:
-  RequiredRetentionDays:
+  MinimumRetentionDays:
     Type: Number
-    Default: 30
+    Default: 1
     MinValue: 1
     MaxValue: 3653
     Description: |
-      Required retention period for CloudWatch log groups in days. 
-      Log groups with infinite retention (null) or different values will be marked as NON_COMPLIANT.
+      Minimum retention period for CloudWatch log groups in days. 
+      Log groups with infinite retention (null) or less than this value will be marked as NON_COMPLIANT.
       Valid values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
   
   ConfigRuleName:
     Type: String
-    Default: cloudwatch-log-retention-enforcer
+    Default: cw-lg-retention-min
     MinLength: 1
     MaxLength: 64
-    Description: Name for the AWS Config rule
-    AllowedPattern: '[a-zA-Z0-9-]+'
-    ConstraintDescription: Must contain only alphanumeric characters and hyphens
+    Description: Name for the AWS Config rule (must contain 'retention')
+    AllowedPattern: '.*retention.*'
+    ConstraintDescription: Must contain the word 'retention' (case-insensitive)
+  
+  LambdaLogRetentionDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 3653
+    Description: |
+      Retention period for Lambda function logs in days. 
+      Valid values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
 
 Resources:
   # Lambda Execution Role
@@ -65,9 +72,17 @@ Resources:
                   - config:PutEvaluations
                 Resource: '*'
 
+  # Lambda Log Group (pre-created with retention)
+  ConfigRuleLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ConfigRuleName}-function'
+      RetentionInDays: !Ref LambdaLogRetentionDays
+
   # Lambda Function
   ConfigRuleFunction:
     Type: AWS::Serverless::Function
+    DependsOn: ConfigRuleLambdaLogGroup
     Properties:
       FunctionName: !Sub '${ConfigRuleName}-function'
       CodeUri: src/
@@ -78,7 +93,7 @@ Resources:
       Role: !GetAtt ConfigRuleLambdaRole.Arn
       Environment:
         Variables:
-          REQUIRED_RETENTION_DAYS: !Ref RequiredRetentionDays
+          REQUIRED_RETENTION_DAYS: !Ref MinimumRetentionDays
       Description: !Sub 'AWS Config rule function for ${ConfigRuleName}'
 
   # Config Rule
@@ -87,8 +102,8 @@ Resources:
     Properties:
       ConfigRuleName: !Ref ConfigRuleName
       Description: !Sub |
-        Evaluates whether CloudWatch log groups have ${RequiredRetentionDays} days retention period. 
-        Marks log groups as NON_COMPLIANT if they have infinite retention (null) or a retention period that doesn't match the required value.
+        Monitors CloudWatch log groups for minimum ${MinimumRetentionDays} days retention compliance. 
+        Reports log groups as NON_COMPLIANT if they have infinite retention (null) or retention below the minimum. Does not modify log groups.
       Source:
         Owner: CUSTOM_LAMBDA
         SourceIdentifier: !GetAtt ConfigRuleFunction.Arn
@@ -98,7 +113,7 @@ Resources:
             MaximumExecutionFrequency: TwentyFour_Hours
       InputParameters: !Sub |
         {
-          "RequiredRetentionDays": "${RequiredRetentionDays}"
+          "MinimumRetentionDays": "${MinimumRetentionDays}"
         }
 
   # Permission for Config to invoke Lambda
@@ -135,8 +150,20 @@ Outputs:
     Description: Direct link to view the Config rule in AWS Console
     Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/config/home?region=${AWS::Region}#/rules/details?configRuleName=${ConfigRuleName}'
 
-  RequiredRetentionDays:
-    Description: Configured retention period requirement
-    Value: !Ref RequiredRetentionDays
+  MinimumRetentionDays:
+    Description: Configured minimum retention period requirement
+    Value: !Ref MinimumRetentionDays
     Export:
-      Name: !Sub '${AWS::StackName}-RequiredRetentionDays'
+      Name: !Sub '${AWS::StackName}-MinimumRetentionDays'
+
+  LambdaLogGroupName:
+    Description: Name of the Lambda function's log group
+    Value: !Ref ConfigRuleLambdaLogGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaLogGroupName'
+
+  LambdaLogRetentionDays:
+    Description: Retention period for Lambda function logs
+    Value: !Ref LambdaLogRetentionDays
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaLogRetentionDays'
