@@ -58,8 +58,10 @@ jobs:
       - name: Validate SAM template
         run: |
           cd cw-lg-retention-monitor
-          sam validate
-          sam validate --lint
+          AWS_DEFAULT_REGION=ca-central-1 sam validate
+          AWS_DEFAULT_REGION=ca-central-1 sam validate --lint
+        env:
+          SAM_CLI_TELEMETRY: 0
 
   unit-tests:
     name: Unit Tests
