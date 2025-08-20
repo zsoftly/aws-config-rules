@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: cloudwatch-log-retention-enforcer
+    Description: |
+      AWS Config rule that enforces CloudWatch log group retention policies globally. 
+      Fixes the critical issue where AWS's default rule incorrectly marks infinite retention (null) as compliant.
+      Ensures log groups have exactly the specified retention period to control costs.
+    Author: AWS Config Community
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    HomePageUrl: https://github.com/zsoftly/aws-config-rules
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/zsoftly/aws-config-rules
+    Labels: ['config', 'cloudwatch', 'logs', 'retention', 'compliance', 'cost-optimization']
+
+Parameters:
+  RequiredRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 3653
+    Description: |
+      Required retention period for CloudWatch log groups in days. 
+      Log groups with infinite retention (null) or different values will be marked as NON_COMPLIANT.
+      Valid values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
+  
+  ConfigRuleName:
+    Type: String
+    Default: cloudwatch-log-retention-enforcer
+    MinLength: 1
+    MaxLength: 64
+    Description: Name for the AWS Config rule
+    AllowedPattern: '[a-zA-Z0-9-]+'
+    ConstraintDescription: Must contain only alphanumeric characters and hyphens
+
+Resources:
+  # Lambda Execution Role
+  ConfigRuleLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LogsDescribePermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - config:PutEvaluations
+                Resource: '*'
+
+  # Lambda Function
+  ConfigRuleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ConfigRuleName}-function'
+      CodeUri: src/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Timeout: 300
+      MemorySize: 256
+      Role: !GetAtt ConfigRuleLambdaRole.Arn
+      Environment:
+        Variables:
+          REQUIRED_RETENTION_DAYS: !Ref RequiredRetentionDays
+      Description: !Sub 'AWS Config rule function for ${ConfigRuleName}'
+
+  # Config Rule
+  LogRetentionConfigRule:
+    Type: AWS::Config::ConfigRule
+    Properties:
+      ConfigRuleName: !Ref ConfigRuleName
+      Description: !Sub |
+        Evaluates whether CloudWatch log groups have ${RequiredRetentionDays} days retention period. 
+        Marks log groups as NON_COMPLIANT if they have infinite retention (null) or a retention period that doesn't match the required value.
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !GetAtt ConfigRuleFunction.Arn
+        SourceDetails:
+          - EventSource: aws.config
+            MessageType: ScheduledNotification
+            MaximumExecutionFrequency: TwentyFour_Hours
+      InputParameters: !Sub |
+        {
+          "RequiredRetentionDays": "${RequiredRetentionDays}"
+        }
+
+  # Permission for Config to invoke Lambda
+  ConfigRuleInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ConfigRuleFunction
+      Action: lambda:InvokeFunction
+      Principal: config.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+
+Outputs:
+  ConfigRuleName:
+    Description: Name of the deployed Config rule
+    Value: !Ref LogRetentionConfigRule
+    Export:
+      Name: !Sub '${AWS::StackName}-ConfigRuleName'
+
+  ConfigRuleArn:
+    Description: ARN of the deployed Config rule
+    Value: !Sub 
+      - 'arn:aws:config:${AWS::Region}:${AWS::AccountId}:config-rule/${ConfigRuleId}'
+      - ConfigRuleId: !Ref LogRetentionConfigRule
+    Export:
+      Name: !Sub '${AWS::StackName}-ConfigRuleArn'
+
+  LambdaFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref ConfigRuleFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaFunctionName'
+
+  ConsoleUrl:
+    Description: Direct link to view the Config rule in AWS Console
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/config/home?region=${AWS::Region}#/rules/details?configRuleName=${ConfigRuleName}'
+
+  RequiredRetentionDays:
+    Description: Configured retention period requirement
+    Value: !Ref RequiredRetentionDays
+    Export:
+      Name: !Sub '${AWS::StackName}-RequiredRetentionDays'
