@@ -27,14 +27,14 @@ jobs:
       - name: Lint with flake8
         run: |
           # Stop build if syntax errors or undefined names
-          flake8 cw-loggroup-retention-monitor/src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 cw-lg-retention-monitor/src/ --count --select=E9,F63,F7,F82 --show-source --statistics
           # Check for other issues (warnings only)
-          flake8 cw-loggroup-retention-monitor/src/ --count --max-complexity=10 --max-line-length=120 --statistics || true
+          flake8 cw-lg-retention-monitor/src/ --count --max-complexity=10 --max-line-length=120 --statistics || true
           
       - name: Security scan with Bandit
         run: |
-          bandit -r cw-loggroup-retention-monitor/src/ -f json -o bandit-report.json || true
-          bandit -r cw-loggroup-retention-monitor/src/ --exit-zero
+          bandit -r cw-lg-retention-monitor/src/ -f json -o bandit-report.json || true
+          bandit -r cw-lg-retention-monitor/src/ --exit-zero
           
       - name: Upload Bandit report
         uses: actions/upload-artifact@v4
@@ -57,7 +57,7 @@ jobs:
           
       - name: Validate SAM template
         run: |
-          cd cw-loggroup-retention-monitor
+          cd cw-lg-retention-monitor
           sam validate
           sam validate --lint
 
@@ -76,18 +76,18 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r cw-loggroup-retention-monitor/tests/requirements.txt
-          if [ -f cw-loggroup-retention-monitor/src/requirements.txt ]; then pip install -r cw-loggroup-retention-monitor/src/requirements.txt; fi
+          pip install -r cw-lg-retention-monitor/tests/requirements.txt
+          if [ -f cw-lg-retention-monitor/src/requirements.txt ]; then pip install -r cw-lg-retention-monitor/src/requirements.txt; fi
           
       - name: Run unit tests
         run: |
           # Run tests with coverage
-          cd cw-loggroup-retention-monitor
+          cd cw-lg-retention-monitor
           pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml --tb=short
           
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: cw-loggroup-retention-monitor/coverage.xml
+          path: cw-lg-retention-monitor/coverage.xml
         if: always()

@@ -7,8 +7,8 @@
 
 ## 📋 Available Rules
 
-### 🔍 CloudWatch Log Group Retention Monitor
-**[`cw-loggroup-retention-monitor`](./cw-loggroup-retention-monitor/)**
+### 🔍 CloudWatch LogGroup Retention Monitor
+**[`cw-lg-retention-monitor`](./cw-lg-retention-monitor/)**
 
 - **Purpose:** Monitors CloudWatch log groups for minimum retention compliance
 - **Problem Solved:** AWS's default rule incorrectly marks infinite retention as compliant
@@ -19,7 +19,7 @@
 
 ```
 aws-config-rules/
-├── cw-loggroup-retention-monitor/     # CloudWatch log retention monitor
+├── cw-lg-retention-monitor/     # CloudWatch log retention monitor
 │   ├── src/                          # Lambda function source
 │   ├── tests/                        # Unit tests (77% coverage)
 │   ├── template.yaml                 # SAM template
@@ -35,7 +35,7 @@ aws-config-rules/
 
 ### Deploy via AWS Serverless Application Repository
 1. **Browse**: Go to [AWS SAR Console](https://console.aws.amazon.com/serverlessrepo/)
-2. **Search**: Find `cw-loggroup-retention-monitor`
+2. **Search**: Find `CloudWatch LogGroup Retention Monitor`
 3. **Deploy**: Click deploy and configure parameters
 4. **Done**: Rule active in your account ✅
 
@@ -46,7 +46,7 @@ git clone https://github.com/zsoftly/aws-config-rules.git
 cd aws-config-rules
 
 # Work on specific rule
-cd cw-loggroup-retention-monitor
+cd cw-lg-retention-monitor
 
 # Build and test
 make build
@@ -74,7 +74,7 @@ make deploy-local
 
 | Rule Name | Purpose | Status | Coverage | SAR Link |
 |-----------|---------|--------|----------|----------|
-| [`cw-loggroup-retention-monitor`](./cw-loggroup-retention-monitor/) | CloudWatch log retention compliance | ✅ v1.0.0 | 77% | [Deploy](https://console.aws.amazon.com/serverlessrepo/) |
+| [`cw-lg-retention-monitor`](./cw-lg-retention-monitor/) | CloudWatch LogGroup retention compliance | ✅ v1.0.0 | 77% | [Deploy](https://console.aws.amazon.com/serverlessrepo/) |
 | *More rules coming soon...* | | | | |
 
 ## 🛠️ Development Guidelines
@@ -94,7 +94,7 @@ make deploy-local
 - **Bandit** for security analysis
 
 ### Naming Conventions
-- **Directories**: `kebab-case` (e.g., `cw-loggroup-retention-monitor`)
+- **Directories**: `kebab-case` (e.g., `cw-lg-retention-monitor`)
 - **Functions**: `snake_case` (e.g., `determine_compliance`)
 - **Files**: Follow AWS and Python conventions
 

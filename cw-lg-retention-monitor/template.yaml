@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 
 Metadata:
   AWS::ServerlessRepo::Application:
-    Name: cw-loggroup-retention-monitor
+    Name: CloudWatch-LogGroup-Retention-Monitor
     Description: |
       Monitors CloudWatch log group retention compliance. Fixes AWS default rule that incorrectly marks infinite retention as compliant. Checks log groups against minimum retention requirements without modifying them.
     Author: AWS Config Community
@@ -28,7 +28,7 @@ Parameters:
   
   ConfigRuleName:
     Type: String
-    Default: cw-log-retention-min
+    Default: cw-lg-retention-min
     MinLength: 1
     MaxLength: 64
     Description: Name for the AWS Config rule (must contain 'retention')

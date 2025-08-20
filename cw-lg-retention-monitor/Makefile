@@ -3,13 +3,13 @@
 # Default values
 AWS_REGION ?= ca-central-1
 SEMANTIC_VERSION ?= 1.0.0
-APP_NAME = cw-loggroup-retention-monitor
+APP_NAME = CloudWatch-LogGroup-Retention-Monitor
 
 # SAM managed bucket will be created automatically
 S3_BUCKET_PREFIX = aws-sam-cli-managed-default-samclisourcebucket
 
 help:	## Show this help message
-	@echo "AWS Config Rules - CloudWatch Log Retention Monitor"
+	@echo "AWS Config Rules - CloudWatch LogGroup Retention Monitor"
 	@echo "====================================================="
 	@echo ""
 	@echo "Available targets:"
@@ -68,7 +68,7 @@ deploy-local: build	## Deploy locally for testing (uses original README.md)
 		--capabilities CAPABILITY_IAM \
 		--parameter-overrides \
 			MinimumRetentionDays=1 \
-			ConfigRuleName=cw-log-retention-min-test \
+			ConfigRuleName=cw-lg-retention-min-test \
 			LambdaLogRetentionDays=7 \
 		--resolve-s3
 	@echo " Local deployment completed"
@@ -77,13 +77,13 @@ test-rule:	## Test the deployed Config rule
 	@echo " Testing Config rule..."
 	@AWS_DEFAULT_REGION=$(AWS_REGION) \
 		aws configservice start-config-rules-evaluation \
-		--config-rule-names cw-log-retention-min-test
+		--config-rule-names cw-lg-retention-min-test
 	@echo " Waiting for evaluation to complete..."
 	@sleep 15
 	@echo " Compliance results:"
 	@AWS_DEFAULT_REGION=$(AWS_REGION) \
 		aws configservice get-compliance-details-by-config-rule \
-		--config-rule-name cw-log-retention-min-test \
+		--config-rule-name cw-lg-retention-min-test \
 		--query 'EvaluationResults[*].[EvaluationResultIdentifier.EvaluationResultQualifier.ResourceId,ComplianceType]' \
 		--output table
 

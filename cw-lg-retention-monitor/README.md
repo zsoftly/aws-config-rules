@@ -1,4 +1,4 @@
-# cw-loggroup-retention-monitor: CloudWatch Log Group Retention Compliance Monitor
+# CloudWatch LogGroup Retention Monitor
 
 🎯 **AWS Serverless Application** for CloudWatch log retention compliance monitoring. This app overcomes limitations in the AWS native config rule (`CW_LOGGROUP_RETENTION_PERIOD_CHECK`), which marks infinite retention as compliant and can lead to unexpected costs. Monitors compliance without modifying log groups.
 
@@ -98,7 +98,7 @@ aws configservice describe-delivery-channel-status
 **Deploy in 30 seconds with zero setup required:**
 
 1. **Open the AWS Console** → Serverless Application Repository
-2. **Search**: `cw-loggroup-retention-monitor`
+2. **Search**: `CloudWatch LogGroup Retention Monitor`
 3. **Click Deploy** → Configure parameters → Deploy
 4. **Done!** ✅
 
@@ -111,7 +111,7 @@ aws configservice describe-delivery-channel-status
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | **MinimumRetentionDays** | `1` | Minimum retention period (1-3653 days) |
-| **ConfigRuleName** | `cw-log-retention-min` | Name for the Config rule (must contain 'retention') |
+| **ConfigRuleName** | `cw-lg-retention-min` | Name for the Config rule (must contain 'retention') |
 | **LambdaLogRetentionDays** | `7` | Retention period for Lambda function logs (1-3653 days) |
 
 ## 📦 Alternative Deployment Methods
@@ -158,13 +158,13 @@ else:
 
 **AWS Console:**
 ```
-Config → Rules → cw-log-retention-min → Compliance
+Config → Rules → cw-lg-retention-min → Compliance
 ```
 
 **AWS CLI:**
 ```bash
 aws configservice get-compliance-details-by-config-rule \
-  --config-rule-name cw-log-retention-min
+  --config-rule-name cw-lg-retention-min
 ```
 
 ## 💰 Cost Impact
@@ -202,7 +202,7 @@ The Lambda function needs:
 ```mermaid
 graph TB
     A[CloudWatch Log Groups] --> B[AWS Config Service]
-    B --> C[Lambda Function<br/>cw-loggroup-retention-monitor]
+    B --> C[Lambda Function<br/>cw-lg-retention-monitor]
     C --> D{Compliance Check}
     
     D --> E1[✅ COMPLIANT<br/>retention ≥ minimum<br/>e.g., 30 days ≥ 7 days]

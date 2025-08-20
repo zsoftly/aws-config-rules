@@ -1,6 +1,6 @@
 
 
-# cw-loggroup-retention-monitor (AWS SAR)
+# CloudWatch LogGroup Retention Monitor (AWS SAR)
 
 **CloudWatch log group retention compliance monitoring**
 
@@ -37,13 +37,13 @@ This application is built to support [LogGuardian](https://github.com/zsoftly/lo
 **AWS CLI:**
 ```bash
 aws serverlessrepo create-cloud-formation-template \
-  --application-id arn:aws:serverlessrepo:ca-central-1:YOUR-ACCOUNT:applications/cw-loggroup-retention-monitor \
+  --application-id arn:aws:serverlessrepo:ca-central-1:YOUR-ACCOUNT:applications/CloudWatch-LogGroup-Retention-Monitor \
   --semantic-version 1.0.0 \
   --region ca-central-1
 
 aws cloudformation deploy \
   --template-file template.yaml \
-  --stack-name cw-loggroup-retention-monitor \
+  --stack-name cw-lg-retention-monitor \
   --capabilities CAPABILITY_IAM
 ```
 
@@ -64,7 +64,7 @@ aws cloudformation deploy \
 - Valid values: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
 
 **ConfigRuleName**
-- Default: cw-log-retention-min
+- Default: cw-lg-retention-min
 - Description: Name for the AWS Config rule (must contain 'retention')
 - Pattern: Must contain the word 'retention' (case-insensitive)
 
