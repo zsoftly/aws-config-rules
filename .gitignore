@@ -210,3 +210,14 @@ __marimo__/
 .aws-sam/
 packaged-template.yaml
 template-sar.yaml
+
+# Security scan reports
+bandit-report.json
+*-report.json
+
+# Test artifacts
+tests/__pycache__/
+tests/*.pyc
+
+# Claude IDE
+.claude/
