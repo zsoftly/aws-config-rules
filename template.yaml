@@ -5,9 +5,7 @@ Metadata:
   AWS::ServerlessRepo::Application:
     Name: cloudwatch-log-retention-enforcer
     Description: |
-      AWS Config rule that enforces CloudWatch log group retention policies globally. 
-      Fixes the critical issue where AWS's default rule incorrectly marks infinite retention (null) as compliant.
-      Ensures log groups have exactly the specified retention period to control costs.
+      Enforces CloudWatch log retention policies. Fixes AWS default rule that incorrectly marks infinite retention as compliant.
     Author: AWS Config Community
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
