@@ -1,0 +1,31 @@
+name: CI
+
+
+on:
+  push:
+    branches: [ main, 'feature/*', 'feat/*', 'issue/*', 'release/*' ]
+  pull_request:
+    branches: [ main, 'feature/*', 'feat/*', 'issue/*', 'release/*' ]
+
+
+jobs:
+  sast:
+    name: Run SAST (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Bandit
+        run: pip install bandit
+      - name: Run Bandit SAST scan
+        run: bandit -r src/ --exit-zero
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit.json
+        if: always()
