@@ -95,16 +95,18 @@ aws configservice describe-delivery-channel-status
 
 ### AWS Serverless Application Repository
 
-**Deploy in 30 seconds with zero setup required:**
+**One-click deploy:**
+[**Deploy CloudWatch LogGroup Retention Monitor**](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/CloudWatch-LogGroup-Retention-Monitor)
 
-1. **Open the AWS Console** → Serverless Application Repository
-2. **Search**: `CloudWatch LogGroup Retention Monitor`
-3. **Click Deploy** → Configure parameters → Deploy
-4. **Done!** ✅
+### 🔄 Complete Solution: LogGuardian Integration
+After deploying this Config rule, enhance your log management with **LogGuardian** for automated retention enforcement and cost optimization:
 
-**Any AWS Region:**
-- AWS SAR automatically distributes to all regions
-- Search in your preferred region's SAR console
+[**Deploy LogGuardian**](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/LogGuardian)
+
+**Integration Workflow:**
+1. **Monitor** → Deploy this Config rule for compliance monitoring
+2. **Enforce** → Deploy LogGuardian for automated retention enforcement
+3. **Configure** → Set LogGuardian to use `cw-lg-retention-min` as the existing Config rule (avoids AWS native rule limitations)
 
 ### Parameters
 
@@ -171,8 +173,9 @@ aws configservice get-compliance-details-by-config-rule \
 
 ### Cost Savings
 - **Identifies infinite retention** log groups costing $$$
-- **Enforces consistent policy** across all log groups
+- **Monitors compliance** across all log groups
 - **Prevents cost surprises** from forgotten log groups
+- **Integrates with LogGuardian** for automated enforcement and maximum cost optimization
 
 ### Rule Cost
 - **Lambda execution**: ~$0.01/month

@@ -13,7 +13,7 @@
 - **Purpose:** Monitors CloudWatch log groups for minimum retention compliance
 - **Problem Solved:** AWS's default rule incorrectly marks infinite retention as compliant
 - **Status:** ✅ Production Ready (v1.0.0)
-- **Deployment:** [AWS Serverless Application Repository](https://serverlessrepo.aws.amazon.com/)
+- **Integration:** Works with [LogGuardian](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/LogGuardian) for complete log management
 
 ## 🏗️ Repository Structure
 
@@ -34,10 +34,8 @@ aws-config-rules/
 ## 🚀 Quick Start
 
 ### Deploy via AWS Serverless Application Repository
-1. **Browse**: Go to [AWS SAR Console](https://console.aws.amazon.com/serverlessrepo/)
-2. **Search**: Find `CloudWatch LogGroup Retention Monitor`
-3. **Deploy**: Click deploy and configure parameters
-4. **Done**: Rule active in your account ✅
+**One-click deploy:**
+[**Deploy CloudWatch LogGroup Retention Monitor**](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/CloudWatch-LogGroup-Retention-Monitor)
 
 ### Local Development
 ```bash
@@ -74,7 +72,7 @@ make deploy-local
 
 | Rule Name | Purpose | Status | Coverage | SAR Link |
 |-----------|---------|--------|----------|----------|
-| [`cw-lg-retention-monitor`](./cw-lg-retention-monitor/) | CloudWatch LogGroup retention compliance | ✅ v1.0.0 | 77% | [Deploy](https://console.aws.amazon.com/serverlessrepo/) |
+| [`cw-lg-retention-monitor`](./cw-lg-retention-monitor/) | CloudWatch LogGroup retention compliance | ✅ v1.0.0 | 77% | [Deploy](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/CloudWatch-LogGroup-Retention-Monitor) |
 | *More rules coming soon...* | | | | |
 
 ## 🛠️ Development Guidelines
