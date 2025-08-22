@@ -11,7 +11,7 @@ Metadata:
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/zsoftly/aws-config-rules
-    SemanticVersion: 1.1.0
+    SemanticVersion: 1.1.1
     SourceCodeUrl: https://github.com/zsoftly/aws-config-rules
     Labels: ['config', 'cloudwatch', 'logs', 'retention', 'compliance', 'cost-optimization']
 
@@ -101,6 +101,7 @@ Resources:
   # Config Rule
   LogRetentionConfigRule:
     Type: AWS::Config::ConfigRule
+    DependsOn: ConfigRuleInvokePermission
     Properties:
       ConfigRuleName: !Ref ConfigRuleName
       Description: !Sub |

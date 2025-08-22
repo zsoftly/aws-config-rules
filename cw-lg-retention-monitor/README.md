@@ -345,6 +345,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔄 Version History
 
+- **v1.1.1** - Fixed Config rule deployment dependency issue
 - **v1.1.0** - Fixed stale evaluation handling for deleted resources
 - **v1.0.0** - Initial SAR release with core functionality
 - **v0.9.0** - RDK-based implementation (legacy)
