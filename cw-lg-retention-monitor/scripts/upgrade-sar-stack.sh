@@ -56,10 +56,10 @@ EXAMPLES:
     $0
 
     # Upgrade to specific version
-    $0 --version 1.1.1
+    $0 --version 1.1.2
 
     # Use custom stack name
-    $0 --stack-name my-custom-stack --version 1.1.1
+    $0 --stack-name my-custom-stack --version 1.1.2
 
 EOF
     exit 0

@@ -125,7 +125,7 @@ See [UPGRADE.md](UPGRADE.md) for detailed instructions on upgrading your existin
 # Download and run upgrade script
 curl -O https://raw.githubusercontent.com/zsoftly/aws-config-rules/main/cw-lg-retention-monitor/scripts/upgrade-sar-stack.sh
 chmod +x upgrade-sar-stack.sh
-./upgrade-sar-stack.sh --version 1.1.1
+./upgrade-sar-stack.sh --version 1.1.2
 ```
 
 ## 📦 Alternative Deployment Methods
@@ -357,7 +357,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔄 Version History
 
-- **v1.1.1** - Fixed Config rule deployment dependency issue
+- **v1.1.2** - Fixed Config rule deployment dependency issue
 - **v1.1.0** - Fixed stale evaluation handling for deleted resources
 - **v1.0.0** - Initial SAR release with core functionality
 - **v0.9.0** - RDK-based implementation (legacy)

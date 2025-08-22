@@ -22,7 +22,7 @@ make deploy-local
 
 | Rule Name | Purpose | Status | Coverage | SAR Link |
 |-----------|---------|--------|----------|----------|
-| [`cw-lg-retention-monitor`](./cw-lg-retention-monitor/) | CloudWatch LogGroup retention compliance | ✅ v1.1.1 | 95% | [Deploy](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/CloudWatch-LogGroup-Retention-Monitor) |
+| [`cw-lg-retention-monitor`](./cw-lg-retention-monitor/) | CloudWatch LogGroup retention compliance | ✅ v1.1.2 | 95% | [Deploy](https://serverlessrepo.aws.amazon.com/applications/ca-central-1/410129828371/CloudWatch-LogGroup-Retention-Monitor) |
 | *More rules coming soon...* | | | | |
 
 ## 📚 Documentation

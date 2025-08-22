@@ -40,7 +40,7 @@ aws lambda get-function --function-name "$LAMBDA_NAME" \
 
 | Version | Release Date | Changes |
 |---------|-------------|---------|
-| 1.1.1 | 2025-08-22 | Fixed Config rule deployment dependency issue |
+| 1.1.2 | 2025-08-22 | Fixed Config rule deployment dependency issue |
 | 1.1.0 | 2025-08-22 | Fixed stale evaluation handling for deleted resources |
 | 1.0.2 | 2025-08-20 | Minor bug fixes |
 | 1.0.1 | 2025-08-20 | Documentation updates |
@@ -64,7 +64,7 @@ aws cloudformation describe-stacks \
 ```bash
 aws serverlessrepo create-cloud-formation-template \
   --application-id arn:aws:serverlessrepo:ca-central-1:410129828371:applications/CloudWatch-LogGroup-Retention-Monitor \
-  --semantic-version 1.1.1
+  --semantic-version 1.1.2
 ```
 
 Copy the `TemplateUrl` from the output.
@@ -102,7 +102,7 @@ chmod +x upgrade-sar-stack.sh
 ./upgrade-sar-stack.sh
 
 # Upgrade to specific version
-./upgrade-sar-stack.sh --version 1.1.1
+./upgrade-sar-stack.sh --version 1.1.2
 
 # Specify stack name if different
 ./upgrade-sar-stack.sh --stack-name my-custom-stack-name
@@ -133,7 +133,7 @@ aws cloudformation wait stack-delete-complete \
 aws serverlessrepo create-cloud-formation-change-set \
   --application-id arn:aws:serverlessrepo:ca-central-1:410129828371:applications/CloudWatch-LogGroup-Retention-Monitor \
   --stack-name serverlessrepo-CloudWatch-LogGroup-Retention-Monitor \
-  --semantic-version 1.1.1 \
+  --semantic-version 1.1.2 \
   --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_RESOURCE_POLICY \
   --parameter-overrides \
     Name=MinimumRetentionDays,Value=1 \
