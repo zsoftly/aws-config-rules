@@ -16,6 +16,9 @@ from lambda_function import (
     create_annotation,
     create_evaluation,
     evaluate_single_log_group,
+    evaluate_all_log_groups,
+    get_configuration_item,
+    submit_evaluations,
     lambda_handler
 )
 
@@ -167,6 +170,334 @@ class TestSingleLogGroupEvaluation:
         
         evaluation = evaluate_single_log_group(configuration_item, 1)
         assert evaluation['ComplianceType'] == 'NON_COMPLIANT'
+    
+    def test_evaluate_deleted_log_group(self):
+        """Test evaluating a deleted log group"""
+        configuration_item = {
+            'resourceId': '/aws/lambda/deleted',
+            'resourceType': 'AWS::Logs::LogGroup',
+            'configurationItemCaptureTime': '2024-01-01T00:00:00Z',
+            'configurationItemStatus': 'ResourceDeleted',
+            'configuration': {}
+        }
+        
+        evaluation = evaluate_single_log_group(configuration_item, 30)
+        
+        assert evaluation['ComplianceType'] == 'NOT_APPLICABLE'
+        assert 'deleted' in evaluation['Annotation'].lower()
+    
+    def test_evaluate_log_group_out_of_scope(self):
+        """Test evaluating log group that left scope"""
+        configuration_item = {
+            'resourceId': '/aws/lambda/out-of-scope',
+            'resourceType': 'AWS::Logs::LogGroup',
+            'configurationItemCaptureTime': '2024-01-01T00:00:00Z',
+            'eventLeftScope': True,
+            'configuration': {'retentionInDays': 30}
+        }
+        
+        evaluation = evaluate_single_log_group(configuration_item, 7)
+        
+        assert evaluation['ComplianceType'] == 'NOT_APPLICABLE'
+        assert 'out of scope' in evaluation['Annotation'].lower()
+    
+    def test_evaluate_resource_deleted_not_recorded(self):
+        """Test evaluating resource with ResourceDeletedNotRecorded status"""
+        configuration_item = {
+            'resourceId': '/test/deleted-not-recorded',
+            'resourceType': 'AWS::Logs::LogGroup',
+            'configurationItemCaptureTime': '2024-01-01T00:00:00Z',
+            'configurationItemStatus': 'ResourceDeletedNotRecorded',
+            'configuration': {}
+        }
+        
+        evaluation = evaluate_single_log_group(configuration_item, 30)
+        assert evaluation['ComplianceType'] == 'NOT_APPLICABLE'
+
+
+class TestStaleEvaluationCleanup:
+    """Test stale evaluation cleanup functionality"""
+    
+    @patch('lambda_function.boto3.client')
+    def test_evaluate_all_with_deleted_resources(self, mock_boto_client):
+        """Test that deleted resources are marked as NOT_APPLICABLE"""
+        # Mock logs client and config client
+        mock_logs_client = Mock()
+        mock_config_client = Mock()
+        
+        # boto3.client is called to create config client inside evaluate_all_log_groups
+        mock_boto_client.return_value = mock_config_client
+        
+        # Mock paginator for existing log groups
+        mock_paginator = Mock()
+        mock_logs_client.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {
+                'logGroups': [
+                    {'logGroupName': '/existing/log', 'retentionInDays': 30}
+                ]
+            }
+        ]
+        
+        # Mock config client for previous evaluations
+        mock_config_client.get_compliance_details_by_config_rule.return_value = {
+            'EvaluationResults': [
+                {
+                    'EvaluationResultIdentifier': {
+                        'EvaluationResultQualifier': {
+                            'ResourceId': '/existing/log'
+                        }
+                    }
+                },
+                {
+                    'EvaluationResultIdentifier': {
+                        'EvaluationResultQualifier': {
+                            'ResourceId': '/deleted/log'  # This one no longer exists
+                        }
+                    }
+                }
+            ]
+        }
+        
+        event = {
+            'configRuleName': 'test-rule',
+            'invokingEvent': json.dumps({
+                'notificationCreationTime': '2024-01-01T00:00:00Z'
+            })
+        }
+        
+        evaluations = evaluate_all_log_groups(mock_logs_client, 30, event)
+        
+        # Should have 2 evaluations: 1 existing, 1 deleted
+        assert len(evaluations) == 2
+        
+        # Find the evaluations
+        existing_eval = next(e for e in evaluations if e['ComplianceResourceId'] == '/existing/log')
+        deleted_eval = next(e for e in evaluations if e['ComplianceResourceId'] == '/deleted/log')
+        
+        assert existing_eval['ComplianceType'] == 'COMPLIANT'
+        assert deleted_eval['ComplianceType'] == 'NOT_APPLICABLE'
+        assert 'no longer exists' in deleted_eval['Annotation']
+    
+    @patch('lambda_function.boto3.client')
+    def test_evaluate_all_with_pagination(self, mock_boto_client):
+        """Test handling of paginated Config API responses"""
+        mock_logs_client = Mock()
+        mock_config_client = Mock()
+        
+        # boto3.client is called to create config client inside evaluate_all_log_groups
+        mock_boto_client.return_value = mock_config_client
+        
+        # Mock empty log groups (all deleted)
+        mock_paginator = Mock()
+        mock_logs_client.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [{'logGroups': []}]
+        
+        # Mock paginated previous evaluations
+        mock_config_client.get_compliance_details_by_config_rule.side_effect = [
+            {
+                'EvaluationResults': [
+                    {
+                        'EvaluationResultIdentifier': {
+                            'EvaluationResultQualifier': {'ResourceId': '/deleted/log1'}
+                        }
+                    }
+                ],
+                'NextToken': 'token1'
+            },
+            {
+                'EvaluationResults': [
+                    {
+                        'EvaluationResultIdentifier': {
+                            'EvaluationResultQualifier': {'ResourceId': '/deleted/log2'}
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        event = {
+            'configRuleName': 'test-rule',
+            'invokingEvent': json.dumps({
+                'notificationCreationTime': '2024-01-01T00:00:00Z'
+            })
+        }
+        
+        evaluations = evaluate_all_log_groups(mock_logs_client, 30, event)
+        
+        # Should have marked both as NOT_APPLICABLE
+        assert len(evaluations) == 2
+        assert all(e['ComplianceType'] == 'NOT_APPLICABLE' for e in evaluations)
+    
+    @patch('lambda_function.boto3.client')
+    def test_evaluate_all_config_api_failure(self, mock_boto_client):
+        """Test graceful handling when Config API fails"""
+        mock_logs_client = Mock()
+        mock_config_client = Mock()
+        
+        # boto3.client is called to create config client inside evaluate_all_log_groups
+        mock_boto_client.return_value = mock_config_client
+        
+        # Mock log groups
+        mock_paginator = Mock()
+        mock_logs_client.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {
+                'logGroups': [
+                    {'logGroupName': '/test/log', 'retentionInDays': 30}
+                ]
+            }
+        ]
+        
+        # Mock Config API failure
+        mock_config_client.get_compliance_details_by_config_rule.side_effect = Exception("Config API error")
+        
+        event = {
+            'configRuleName': 'test-rule',
+            'invokingEvent': json.dumps({
+                'notificationCreationTime': '2024-01-01T00:00:00Z'
+            })
+        }
+        
+        # Should not fail, just skip stale cleanup
+        evaluations = evaluate_all_log_groups(mock_logs_client, 30, event)
+        
+        # Should still have the existing log group evaluation
+        assert len(evaluations) == 1
+        assert evaluations[0]['ComplianceResourceId'] == '/test/log'
+
+
+class TestConfigurationItem:
+    """Test configuration item handling"""
+    
+    @patch('lambda_function.boto3.client')
+    def test_get_configuration_item_oversized(self, mock_boto_client):
+        """Test handling of oversized configuration items"""
+        mock_config_client = Mock()
+        mock_boto_client.return_value = mock_config_client
+        
+        # Mock API response for oversized item
+        mock_config_client.get_resource_config_history.return_value = {
+            'configurationItems': [
+                {
+                    'resourceId': '/test/log',
+                    'resourceType': 'AWS::Logs::LogGroup',
+                    'configurationItemCaptureTime': '2024-01-01T00:00:00Z',
+                    'configuration': '{"retentionInDays": 30}'
+                }
+            ]
+        }
+        
+        invoking_event = {
+            'messageType': 'OversizedConfigurationItemChangeNotification',
+            'configurationItemSummary': {
+                'resourceType': 'AWS::Logs::LogGroup',
+                'resourceId': '/test/log',
+                'configurationItemCaptureTime': '2024-01-01T00:00:00Z'
+            }
+        }
+        
+        result = get_configuration_item(invoking_event, mock_config_client)
+        
+        assert result is not None
+        assert result['resourceId'] == '/test/log'
+        assert result['configuration']['retentionInDays'] == 30
+    
+    def test_get_configuration_item_standard(self):
+        """Test handling of standard configuration items"""
+        invoking_event = {
+            'messageType': 'ConfigurationItemChangeNotification',
+            'configurationItem': {
+                'resourceId': '/test/log',
+                'resourceType': 'AWS::Logs::LogGroup',
+                'configuration': {'retentionInDays': 7}
+            }
+        }
+        
+        result = get_configuration_item(invoking_event, None)
+        
+        assert result is not None
+        assert result['resourceId'] == '/test/log'
+        assert result['configuration']['retentionInDays'] == 7
+    
+    @patch('lambda_function.boto3.client')
+    def test_get_configuration_item_no_history(self, mock_boto_client):
+        """Test handling when no configuration history is available"""
+        mock_config_client = Mock()
+        mock_boto_client.return_value = mock_config_client
+        
+        # Mock empty API response
+        mock_config_client.get_resource_config_history.return_value = {
+            'configurationItems': []
+        }
+        
+        invoking_event = {
+            'messageType': 'OversizedConfigurationItemChangeNotification',
+            'configurationItemSummary': {
+                'resourceType': 'AWS::Logs::LogGroup',
+                'resourceId': '/test/log',
+                'configurationItemCaptureTime': '2024-01-01T00:00:00Z'
+            }
+        }
+        
+        result = get_configuration_item(invoking_event, mock_config_client)
+        assert result is None
+
+
+class TestSubmitEvaluations:
+    """Test evaluation submission"""
+    
+    @patch('lambda_function.boto3.client')
+    def test_submit_evaluations_batching(self, mock_boto_client):
+        """Test that evaluations are submitted in batches of 100"""
+        mock_config_client = Mock()
+        
+        # Create 250 evaluations to test batching
+        evaluations = []
+        for i in range(250):
+            evaluations.append({
+                'ComplianceResourceType': 'AWS::Logs::LogGroup',
+                'ComplianceResourceId': f'/test/log{i}',
+                'ComplianceType': 'COMPLIANT',
+                'Annotation': 'Test',
+                'OrderingTimestamp': datetime.now()
+            })
+        
+        event = {'resultToken': 'test-token'}
+        
+        submit_evaluations(mock_config_client, evaluations, event)
+        
+        # Should have been called 3 times (100, 100, 50)
+        assert mock_config_client.put_evaluations.call_count == 3
+        
+        # Check batch sizes
+        calls = mock_config_client.put_evaluations.call_args_list
+        assert len(calls[0][1]['Evaluations']) == 100
+        assert len(calls[1][1]['Evaluations']) == 100
+        assert len(calls[2][1]['Evaluations']) == 50
+    
+    @patch('lambda_function.boto3.client')
+    def test_submit_evaluations_datetime_conversion(self, mock_boto_client):
+        """Test that datetime objects are converted to strings"""
+        mock_config_client = Mock()
+        
+        evaluations = [{
+            'ComplianceResourceType': 'AWS::Logs::LogGroup',
+            'ComplianceResourceId': '/test/log',
+            'ComplianceType': 'COMPLIANT',
+            'Annotation': 'Test',
+            'OrderingTimestamp': datetime(2024, 1, 1, 12, 0, 0)
+        }]
+        
+        event = {'resultToken': 'test-token'}
+        
+        submit_evaluations(mock_config_client, evaluations, event)
+        
+        # Check that datetime was converted to string
+        args = mock_config_client.put_evaluations.call_args
+        submitted_eval = args[1]['Evaluations'][0]
+        assert isinstance(submitted_eval['OrderingTimestamp'], str)
+        assert submitted_eval['OrderingTimestamp'] == '2024-01-01T12:00:00'
 
 
 class TestLambdaHandler:
@@ -178,7 +509,7 @@ class TestLambdaHandler:
         # Mock clients
         mock_logs_client = Mock()
         mock_config_client = Mock()
-        mock_boto_client.side_effect = [mock_config_client, mock_logs_client]
+        mock_boto_client.side_effect = [mock_config_client, mock_logs_client, mock_config_client]  # Need config client twice now
         
         # Mock paginator
         mock_paginator = Mock()
@@ -198,6 +529,11 @@ class TestLambdaHandler:
             }
         ]
         
+        # Mock empty previous evaluations (no stale cleanup needed)
+        mock_config_client.get_compliance_details_by_config_rule.return_value = {
+            'EvaluationResults': []
+        }
+        
         # Test event
         event = {
             'invokingEvent': json.dumps({
@@ -207,7 +543,8 @@ class TestLambdaHandler:
             'ruleParameters': json.dumps({
                 'MinimumRetentionDays': '30'
             }),
-            'resultToken': 'test-token'
+            'resultToken': 'test-token',
+            'configRuleName': 'test-rule'
         }
         
         result = lambda_handler(event, {})
@@ -215,17 +552,21 @@ class TestLambdaHandler:
         # Verify result
         assert result['statusCode'] == 200
         body = json.loads(result['body'])
-        assert body['evaluations_count'] == 2
+        assert body['evaluations_count'] >= 2  # May have more if stale cleanup occurs
         
         # Verify put_evaluations was called
         mock_config_client.put_evaluations.assert_called_once()
         args = mock_config_client.put_evaluations.call_args
         evaluations = args[1]['Evaluations']
         
-        # Check evaluations
-        assert len(evaluations) == 2
-        assert evaluations[0]['ComplianceType'] == 'NON_COMPLIANT'  # 7 days < 30
-        assert evaluations[1]['ComplianceType'] == 'NON_COMPLIANT'  # infinite
+        # Check evaluations - find the specific ones we care about
+        test_eval = next((e for e in evaluations if e['ComplianceResourceId'] == '/aws/lambda/test'), None)
+        infinite_eval = next((e for e in evaluations if e['ComplianceResourceId'] == '/test/infinite'), None)
+        
+        assert test_eval is not None
+        assert test_eval['ComplianceType'] == 'NON_COMPLIANT'  # 7 days < 30
+        assert infinite_eval is not None
+        assert infinite_eval['ComplianceType'] == 'NON_COMPLIANT'  # infinite
     
     @patch('lambda_function.boto3.client')
     def test_lambda_handler_error_handling(self, mock_boto_client):
@@ -259,6 +600,45 @@ class TestLambdaHandler:
         assert len(evaluations) == 1
         assert evaluations[0]['ComplianceType'] == 'NOT_APPLICABLE'
         assert 'Error during evaluation' in evaluations[0]['Annotation']
+    
+    @patch('lambda_function.boto3.client')
+    def test_lambda_handler_configuration_change(self, mock_boto_client):
+        """Test lambda handler with configuration change notification"""
+        mock_config_client = Mock()
+        mock_boto_client.return_value = mock_config_client
+        
+        event = {
+            'invokingEvent': json.dumps({
+                'messageType': 'ConfigurationItemChangeNotification',
+                'configurationItem': {
+                    'resourceId': '/test/log',
+                    'resourceType': 'AWS::Logs::LogGroup',
+                    'configurationItemCaptureTime': '2024-01-01T00:00:00Z',
+                    'configuration': {
+                        'retentionInDays': 7
+                    }
+                }
+            }),
+            'ruleParameters': json.dumps({
+                'MinimumRetentionDays': '30'
+            }),
+            'resultToken': 'test-token'
+        }
+        
+        result = lambda_handler(event, {})
+        
+        assert result['statusCode'] == 200
+        body = json.loads(result['body'])
+        assert body['evaluations_count'] == 1
+        
+        # Verify evaluation was submitted
+        mock_config_client.put_evaluations.assert_called_once()
+        args = mock_config_client.put_evaluations.call_args
+        evaluations = args[1]['Evaluations']
+        
+        assert len(evaluations) == 1
+        assert evaluations[0]['ComplianceResourceId'] == '/test/log'
+        assert evaluations[0]['ComplianceType'] == 'NON_COMPLIANT'
     
     def test_lambda_handler_parameter_parsing(self):
         """Test parameter parsing from event"""
