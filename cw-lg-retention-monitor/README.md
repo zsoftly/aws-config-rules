@@ -116,6 +116,18 @@ After deploying this Config rule, enhance your log management with **LogGuardian
 | **ConfigRuleName** | `cw-lg-retention-min` | Name for the Config rule (must contain 'retention') |
 | **LambdaLogRetentionDays** | `7` | Retention period for Lambda function logs (1-3653 days) |
 
+## 🔄 Upgrading Existing Deployments
+
+See [UPGRADE.md](UPGRADE.md) for detailed instructions on upgrading your existing SAR deployment to the latest version.
+
+### Quick Upgrade
+```bash
+# Download and run upgrade script
+curl -O https://raw.githubusercontent.com/zsoftly/aws-config-rules/main/cw-lg-retention-monitor/scripts/upgrade-sar-stack.sh
+chmod +x upgrade-sar-stack.sh
+./upgrade-sar-stack.sh --version 1.1.1
+```
+
 ## 📦 Alternative Deployment Methods
 
 ### AWS SAM CLI (For Development)
