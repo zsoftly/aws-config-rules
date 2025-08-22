@@ -84,8 +84,10 @@ def lambda_handler(event, context):
 def evaluate_all_log_groups(logs_client, required_retention_days, event):
     """Evaluate all CloudWatch log groups in the account"""
     evaluations = []
+    evaluated_resources = set()
     
     try:
+        # First, get all existing log groups and evaluate them
         paginator = logs_client.get_paginator('describe_log_groups')
         
         for page in paginator.paginate():
@@ -101,18 +103,81 @@ def evaluate_all_log_groups(logs_client, required_retention_days, event):
                     event=event
                 )
                 evaluations.append(evaluation)
+                evaluated_resources.add(log_group_name)
+        
+        # Get previously evaluated resources from Config to check for deletions
+        config_client = boto3.client('config')
+        try:
+            # Get all previously evaluated resources for this rule
+            config_rule_name = event.get('configRuleName')
+            if config_rule_name:
+                # Get paginated results for all previously evaluated resources
+                next_token = None
+                previously_evaluated = set()
+                
+                while True:
+                    params = {
+                        'ConfigRuleName': config_rule_name,
+                        'ComplianceTypes': ['COMPLIANT', 'NON_COMPLIANT']
+                    }
+                    if next_token:
+                        params['NextToken'] = next_token
+                    
+                    detail_response = config_client.get_compliance_details_by_config_rule(**params)
+                    
+                    for result in detail_response.get('EvaluationResults', []):
+                        resource_id = result['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId']
+                        previously_evaluated.add(resource_id)
+                        
+                        # If this resource was previously evaluated but doesn't exist anymore, mark as NOT_APPLICABLE
+                        if resource_id not in evaluated_resources:
+                            evaluation = {
+                                'ComplianceResourceType': 'AWS::Logs::LogGroup',
+                                'ComplianceResourceId': resource_id,
+                                'ComplianceType': 'NOT_APPLICABLE',
+                                'Annotation': f"Log group '{resource_id}' no longer exists",
+                                'OrderingTimestamp': json.loads(event['invokingEvent'])['notificationCreationTime']
+                            }
+                            evaluations.append(evaluation)
+                            print(f"Marking deleted log group as NOT_APPLICABLE: {resource_id}")
+                    
+                    # Check if there are more results
+                    next_token = detail_response.get('NextToken')
+                    if not next_token:
+                        break
+                
+                print(f"Found {len(previously_evaluated)} previously evaluated resources")
+                            
+        except Exception as e:
+            # If we can't get previous evaluations, just continue with current resources
+            print(f"Could not retrieve previous evaluations: {e}")
                 
     except botocore.exceptions.ClientError as e:
         print(f"Error describing log groups: {e}")
         raise e
         
-    print(f"Evaluated {len(evaluations)} log groups")
+    print(f"Evaluated {len(evaluations)} total resources ({len(evaluated_resources)} existing log groups)")
     return evaluations
 
 
 def evaluate_single_log_group(configuration_item, required_retention_days):
     """Evaluate a single log group from configuration change"""
     log_group_name = configuration_item['resourceId']
+    
+    # Check if resource was deleted or is out of scope
+    config_item_status = configuration_item.get('configurationItemStatus', 'OK')
+    event_left_scope = configuration_item.get('eventLeftScope', False)
+    
+    # If resource is deleted or out of scope, mark as NOT_APPLICABLE
+    if config_item_status == 'ResourceDeleted' or config_item_status == 'ResourceDeletedNotRecorded' or event_left_scope:
+        return {
+            'ComplianceResourceType': configuration_item['resourceType'],
+            'ComplianceResourceId': log_group_name,
+            'ComplianceType': 'NOT_APPLICABLE',
+            'Annotation': f"Log group '{log_group_name}' has been deleted or is out of scope",
+            'OrderingTimestamp': configuration_item['configurationItemCaptureTime']
+        }
+    
     log_group_config = configuration_item['configuration']
     current_retention = log_group_config.get('retentionInDays')
     

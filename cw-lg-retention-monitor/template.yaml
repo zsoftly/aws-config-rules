@@ -11,7 +11,7 @@ Metadata:
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
     HomePageUrl: https://github.com/zsoftly/aws-config-rules
-    SemanticVersion: 1.0.2
+    SemanticVersion: 1.1.0
     SourceCodeUrl: https://github.com/zsoftly/aws-config-rules
     Labels: ['config', 'cloudwatch', 'logs', 'retention', 'compliance', 'cost-optimization']
 
@@ -70,6 +70,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - config:PutEvaluations
+                  - config:DescribeComplianceByConfigRule
+                  - config:GetComplianceDetailsByConfigRule
                 Resource: '*'
 
   # Lambda Log Group (pre-created with retention)

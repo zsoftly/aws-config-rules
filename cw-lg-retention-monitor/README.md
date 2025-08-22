@@ -133,16 +133,18 @@ sam build && sam deploy --guided
 ### Rule Logic
 ```python
 if log_group.retentionInDays is None:
-    return "NON_COMPLIANT"  # ❌ Infinite retention = cost risk
+    return "NON_COMPLIANT"  # Infinite retention = cost risk
 elif log_group.retentionInDays < minimum_days:
-    return "NON_COMPLIANT"  # ❌ Below minimum retention period
+    return "NON_COMPLIANT"  # Below minimum retention period
 else:
-    return "COMPLIANT"      # ✅ Meets or exceeds minimum requirement
+    return "COMPLIANT"      # Meets or exceeds minimum requirement
+
+# Deleted resources marked as NOT_APPLICABLE
 ```
 
 ### Evaluation Schedule
-- **Periodic**: Every 24 hours (checks all log groups)
-- **Real-time**: When log groups are created/modified
+- **Periodic**: Every 24 hours (checks all log groups, marks deleted as NOT_APPLICABLE)
+- **Real-time**: When log groups are created/modified/deleted
 - **Manual**: Trigger via AWS Console or API
 
 ## 📊 Compliance Results
@@ -199,6 +201,8 @@ CloudWatch supports these retention periods:
 The Lambda function needs:
 - `logs:DescribeLogGroups` - List all log groups
 - `config:PutEvaluations` - Submit compliance results
+- `config:DescribeComplianceByConfigRule` - Query previous evaluations
+- `config:GetComplianceDetailsByConfigRule` - Get evaluation details
 
 ## 🏗️ Architecture
 
@@ -341,6 +345,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔄 Version History
 
+- **v1.1.0** - Fixed stale evaluation handling for deleted resources
 - **v1.0.0** - Initial SAR release with core functionality
 - **v0.9.0** - RDK-based implementation (legacy)
 
